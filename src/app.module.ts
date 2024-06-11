@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigureModule } from '@/infrastructure/configure/configure.module';
+import { ConfigureModule } from '@/infrastructure/ioc/configure/configure.module';
 import { HealthCheckModule } from './infrastructure/ioc/health-check/health-check.module';
 import { CryptoModule } from './infrastructure/ioc/crypto/crypto.module';
 

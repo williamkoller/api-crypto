@@ -18,4 +18,11 @@ export class ConfigureEnv {
   get urlBinance(): string {
     return this.config.get<string>('URL_BINANCE');
   }
+
+  get redisUrl(): string {
+    return this.config.get<string>('REDIS_URL');
+  }
+  get redisPass(): string {
+    return this.config.get<string>('REDIS_PASS');
+  }
 }

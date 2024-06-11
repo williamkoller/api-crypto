@@ -11,5 +11,7 @@ const configureEnv = new ConfigureEnv().pathEnv;
       envFilePath: configureEnv,
     }),
   ],
+  providers: [ConfigureEnv],
+  exports: [ConfigureEnv],
 })
 export class ConfigureModule {}
