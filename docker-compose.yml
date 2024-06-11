@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  api-crypto:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-crypto
+    entrypoint: sh -c 'yarn install --frozen-lockfile && yarn start:dev'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - ${PORT}:${PORT}
+    networks:
+      - crypto-net
+
+networks:
+  crypto-net:
+    driver: bridge
