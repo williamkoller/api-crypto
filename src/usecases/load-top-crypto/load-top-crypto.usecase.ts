@@ -1,47 +1,58 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { Binance } from '../../infrastructure/integrations/crypto/http/binance/binance';
 import { BinanceData } from '../../interfaces/crypto/binance.interface';
+import { BinanceMapper } from '../../mappers/binance/binance-mapper';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class LoadTopCryptoUseCase {
-  constructor(private readonly binance: Binance) {}
+  private logger = new Logger('LoadTopCryptoUseCase');
+  constructor(
+    private readonly binance: Binance,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
-  public async execute(): Promise<{ total: number; data: BinanceData[] }> {
-    const dataBinance = await this.binance.topDay();
+  public async execute(): Promise<{
+    total: number;
+    data: BinanceData[];
+    source: string;
+  }> {
+    const cacheKey = 'top-cryptos';
+    try {
+      const cachedData = await this.cacheManager.get<{
+        total: number;
+        data: BinanceData[];
+      }>(cacheKey);
+      if (cachedData) {
+        return { source: 'cache', ...cachedData };
+      }
 
-    const shortData = [...dataBinance].sort(
-      (a, b) => b.priceChangePercent - a.priceChangePercent,
-    );
+      const dataBinance = await this.binance.topDay();
 
-    const topCryptos = shortData.slice(0, 10);
-    const topCryptosInUSD = topCryptos.map((crypto: BinanceData) => ({
-      symbol: crypto.symbol,
-      priceChange: Number(crypto.priceChange),
-      priceChangePercent: Number(crypto.priceChangePercent),
-      weightedAvgPrice: Number(crypto.weightedAvgPrice),
-      prevClosePrice: Number(crypto.prevClosePrice),
-      lastPrice: Number(crypto.lastPrice),
-      lastQty: Number(crypto.lastQty),
-      bidPrice: Number(crypto.bidPrice),
-      bidQty: Number(crypto.bidQty),
-      askPrice: Number(crypto.askPrice),
-      askQty: Number(crypto.askQty),
-      openPrice: Number(crypto.openPrice),
-      highPrice: Number(crypto.highPrice),
-      lowPrice: Number(crypto.lowPrice),
-      volume: Number(crypto.volume),
-      quoteVolume: Number(crypto.quoteVolume),
-      openTime: Number(crypto.openTime),
-      closeTime: Number(crypto.closeTime),
-      firstId: Number(crypto.firstId),
-      lastId: Number(crypto.lastId),
-      count: Number(crypto.count),
-      priceInUSD: Number(crypto.lastPrice),
-    }));
+      const shortData = [...dataBinance].sort(
+        (a, b) => b.priceChangePercent - a.priceChangePercent,
+      );
 
-    return {
-      total: topCryptosInUSD.length,
-      data: topCryptosInUSD,
-    };
+      const topCryptos = shortData.slice(0, 10);
+      const topCryptosInUSD = BinanceMapper.mapCrypto(topCryptos);
+
+      const result = {
+        total: topCryptosInUSD.length,
+        data: topCryptosInUSD,
+      };
+
+      await this.cacheManager.set(cacheKey, result, 5000);
+
+      return { source: 'binance', ...result };
+    } catch (error) {
+      this.logger.error(error.message);
+      throw new BadRequestException(error.message);
+    }
   }
 }
