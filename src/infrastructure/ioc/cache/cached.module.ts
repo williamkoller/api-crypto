@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigureEnv } from '../../configure/env/configure-env';
 import { ConfigureModule } from '@/infrastructure/ioc/configure/configure.module';
+import { CacheRepository } from '../../cache/repositories/cache-repository';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ConfigureModule } from '@/infrastructure/ioc/configure/configure.module
       }),
     }),
   ],
-  exports: [CacheModule],
+  exports: [CacheModule, CacheRepository],
+  providers: [CacheRepository],
 })
 export class CachedModule {}

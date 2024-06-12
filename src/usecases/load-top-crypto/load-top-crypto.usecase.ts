@@ -1,36 +1,36 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Binance } from '../../infrastructure/integrations/crypto/http/binance/binance';
-import { BinanceData } from '../../interfaces/crypto/binance.interface';
 import { BinanceMapper } from '../../mappers/binance/binance-mapper';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { CacheRepository } from '../../infrastructure/cache/repositories/cache-repository';
+import { BinanceData } from '../../interfaces/crypto/binance.interface';
+
+type CryptoType = {
+  source: string;
+  total: number;
+  data: BinanceData[];
+};
 
 @Injectable()
 export class LoadTopCryptoUseCase {
   private logger = new Logger('LoadTopCryptoUseCase');
+  private TTLSECONDS = 2000;
+  private TTLMINUTES = this.TTLSECONDS * 60;
   constructor(
     private readonly binance: Binance,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly cacheRepository: CacheRepository,
   ) {}
 
-  public async execute(): Promise<{
-    total: number;
-    data: BinanceData[];
-    source: string;
-  }> {
+  public async execute(): Promise<CryptoType> {
     const cacheKey = 'top-cryptos';
     try {
-      const cachedData = await this.cacheManager.get<{
-        total: number;
-        data: BinanceData[];
-      }>(cacheKey);
+      const cachedData =
+        await this.cacheRepository.getCache<CryptoType>(cacheKey);
       if (cachedData) {
-        return { source: 'cache', ...cachedData };
+        return {
+          source: 'cache',
+          total: cachedData.total,
+          data: cachedData.data,
+        };
       }
 
       const dataBinance = await this.binance.topDay();
@@ -47,9 +47,9 @@ export class LoadTopCryptoUseCase {
         data: topCryptosInUSD,
       };
 
-      await this.cacheManager.set(cacheKey, result, 5000);
+      await this.cacheRepository.setCache(cacheKey, result, this.TTLMINUTES);
 
-      return { source: 'binance', ...result };
+      return { source: 'binance', total: result.total, data: result.data };
     } catch (error) {
       this.logger.error(error.message);
       throw new BadRequestException(error.message);
